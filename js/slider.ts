@@ -2,8 +2,6 @@
 //jQueryPlagin = jQuery;
 
 (function($) {
-
-    
     interface ViewInterface
     {
         model: any;
