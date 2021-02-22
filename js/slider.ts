@@ -3,6 +3,7 @@
 
 (function($) {
 
+    
     interface ViewInterface
     {
         model: any;
