@@ -9,8 +9,6 @@
         setModel(model:any): void;
     }
 
-    
-    
     class View implements ViewInterface
     {
         
