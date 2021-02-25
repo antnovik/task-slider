@@ -1,143 +1,128 @@
-//var jQueryPlagin;
-//jQueryPlagin = jQuery;
 (function ($) {
     var View = /** @class */ (function () {
-        function View(obSlider) {
-            this.obSlider = obSlider;
+        function View(slider) {
+            this.elements = {};
+            this.subLayers = {};
+            this.el = this.elements.parent = slider;
+            this.bilder = new SliderBilder(this.elements);
         }
-        View.prototype.setModel = function (model) {
-            this.model = model;
-        };
-        View.prototype.update = function () {
+        View.prototype.create = function () {
+            var bilder = this.bilder;
+            this.elements.scale = bilder.createScale();
+            this.subLayers.scale = new SubView(this.elements.scale);
+            this.elements.thumb = bilder.createThumb();
+            this.subLayers.thumb = new SubView(this.elements.thumb);
+            this.elements.thumbOutput = bilder.createThumbOutput();
+            this.subLayers.thumbOutput = new SubView(this.elements.thumbOutput);
         };
         return View;
     }());
-    var Controller = /** @class */ (function () {
-        function Controller(view, model) {
-            //super();
-            //let obSlider
-            this.view = view;
-            this.model = model;
-            this.subscribeVewToModel();
-            this.setModelToView();
-            this.obSlider = view.obSlider;
-            this.handlers = new Handlers(this.obSlider);
-            //console.log(this.handlers);
-            //this.thumbMovingHandler = Handlers.moveHorizontal;
-            this.thumbMovingHandler = this.handlers.moveHorizontal;
-            this.bindEvents();
+    var SubView = /** @class */ (function () {
+        function SubView(el) {
+            this.el = el;
         }
-        Controller.prototype.subscribeVewToModel = function () {
-            this.model.subscribeView(this.view);
-        };
-        Controller.prototype.setModelToView = function () {
-            this.view.setModel(this.model);
-        };
-        Controller.prototype.bindEvents = function () {
-            this.obSlider.thumb.on('mousedown', this.thumbMovingHandler);
-        };
-        return Controller;
+        return SubView;
     }());
-    var Handlers = /** @class */ (function () {
-        function Handlers(obSlider) {
-            var _this = this;
-            this.moveHorizontal = function (event) {
-                event.preventDefault();
-                var slider = _this.sliderDOM.slider;
-                var thumb = _this.sliderDOM.thumb;
-                _this.sliderDOM.shiftX = event.clientX - _this.sliderDOM.thumb.getBoundingClientRect().left;
-                document.addEventListener('mousemove', _this.onMouseMoveHorisontal);
-                document.addEventListener('mouseup', _this.onMouseUpHorisontal);
-            };
-            this.onMouseMoveHorisontal = function (event) {
-                var slider = _this.sliderDOM.slider, thumb = _this.sliderDOM.thumb, shiftX = _this.sliderDOM.shiftX;
-                var newLeft = event.clientX - shiftX - slider.getBoundingClientRect().left;
-                // курсор вышел из слайдера => оставить бегунок в его границах.
-                if (newLeft < 0) {
-                    newLeft = 0;
-                }
-                var rightEdge = slider.offsetWidth - thumb.offsetWidth;
-                if (newLeft > rightEdge) {
-                    newLeft = rightEdge;
-                }
-                thumb.style.left = newLeft + 'px';
-            };
-            this.onMouseUpHorisontal = function () {
-                document.removeEventListener('mouseup', _this.onMouseUpHorisontal);
-                document.removeEventListener('mousemove', _this.onMouseMoveHorisontal);
-            };
-            this.obSlider = obSlider;
-            this.sliderDOM = {
-                slider: obSlider.DOM.slider,
-                thumb: obSlider.DOM.thumb
-                //slider : Helper.makeClearJSElement(obSlider.slider),
-                //thumb : Helper.makeClearJSElement(obSlider.thumb)
-            };
+    var SliderBilder = /** @class */ (function () {
+        function SliderBilder(elements) {
+            this.elements = elements;
         }
-        Handlers.testHandler = function (event) {
-            console.log(event);
-            console.log('testHandler');
+        SliderBilder.prototype.createScale = function (className) {
+            if (className === void 0) { className = 'scale'; }
+            var scale = $('<div>', { 'class': className }), slider = this.elements.parent;
+            slider.append(scale);
+            return scale;
         };
-        return Handlers;
-    }());
-    var Helper = /** @class */ (function () {
-        function Helper() {
-        }
-        Helper.makeClearJSElement = function (el) {
-            if (el instanceof jQuery)
-                return el.get(0);
+        SliderBilder.prototype.createThumb = function (className) {
+            if (className === void 0) { className = 'thumb'; }
+            var thumb = $('<div>', { 'class': className }), scale = this.elements.scale;
+            scale.append(thumb);
+            return thumb;
         };
-        return Helper;
+        SliderBilder.prototype.createThumbOutput = function (className) {
+            if (className === void 0) { className = 'thumb-output'; }
+            var thumbOut = $('<div>', { 'class': className }), scale = this.elements.scale;
+            scale.append(thumbOut);
+            return thumbOut;
+        };
+        return SliderBilder;
     }());
     var Model = /** @class */ (function () {
-        function Model(obSlider) {
-            this.obSlider = obSlider;
+        function Model() {
+            this.curValue = '';
         }
         Model.prototype.init = function (type) {
             if (type === void 0) { type = 'default'; }
             console.log(type);
         };
-        Model.prototype.subscribeView = function (view) {
-            this.view = view;
-        };
-        Model.prototype.calculateCurValue = function () {
-            this.view.update();
+        Model.prototype.calculateCurValue = function (thumbPosition) {
+            //this.view.update();
         };
         return Model;
     }());
-    var Slider = /** @class */ (function () {
-        function Slider(sliderID) {
-            this.DOM = {};
-            var jquerySlider = $('#' + sliderID);
-            this.slider = jquerySlider;
-            this.DOM.slider = Helper.makeClearJSElement(this.slider);
+    var Controller = /** @class */ (function () {
+        function Controller(view, model) {
+            this.view = view;
+            this.model = model;
         }
-        return Slider;
-    }());
-    var SliderBilder = /** @class */ (function () {
-        function SliderBilder(obSlider) {
-            this.obSlider = obSlider;
-        }
-        SliderBilder.prototype.createThumb = function (className) {
-            if (className === void 0) { className = 'thumb'; }
-            var slider = this.obSlider.slider;
-            var thumb = $('<div>', { 'class': className });
-            slider.append(thumb);
-            this.obSlider.thumb = thumb;
-            this.obSlider.DOM.thumb = Helper.makeClearJSElement(thumb);
-            return this;
+        Controller.prototype.init = function () {
+            this.view.create();
+            this.elements = this.view.elements;
+            this.handlers = new Handlers(this.elements);
+            this.thumbMovingHandler = this.handlers.moveHorizontal;
+            this.calcScaleWidth;
+            this.bindEvents();
         };
-        return SliderBilder;
+        Controller.prototype.calcScaleWidth = function () {
+            //return true;
+        };
+        Controller.prototype.bindEvents = function () {
+            this.elements.thumb.on('mousedown', this.thumbMovingHandler);
+        };
+        return Controller;
+    }());
+    var Handlers = /** @class */ (function () {
+        function Handlers(elements) {
+            var _this = this;
+            this.moveHorizontal = function (event) {
+                event.preventDefault();
+                var elements = _this.elements;
+                var thumbLeft = elements.thumb.offset().left;
+                _this.shiftX = event.clientX - thumbLeft;
+                document.addEventListener('mousemove', _this.onMouseMoveHorisontal);
+                document.addEventListener('mouseup', _this.onMouseUpHorisontal);
+            };
+            this.onMouseMoveHorisontal = function (event) {
+                var elements = _this.elements;
+                var sliderLeft = elements.scale.offset().left, shiftX = _this.shiftX;
+                var newLeft = event.clientX - shiftX - sliderLeft;
+                if (newLeft < _this.edges.left) {
+                    newLeft = _this.edges.left;
+                }
+                if (newLeft > _this.edges.right) {
+                    newLeft = _this.edges.right;
+                }
+                elements.thumb.css('left', newLeft + 'px');
+                elements.thumbOutput.css('left', newLeft + 'px');
+            };
+            this.onMouseUpHorisontal = function () {
+                document.removeEventListener('mouseup', _this.onMouseUpHorisontal);
+                document.removeEventListener('mousemove', _this.onMouseMoveHorisontal);
+            };
+            this.elements = elements;
+            this.edges = {
+                right: elements.scale.outerWidth() - elements.thumb.outerWidth(),
+                left: 0
+            };
+        }
+        return Handlers;
     }());
     var SliderMVC = /** @class */ (function () {
         function SliderMVC(sliderID) {
-            var obSlider = new Slider(sliderID);
-            var bilder = new SliderBilder(obSlider);
-            bilder.createThumb();
-            console.log(bilder);
-            this.View = new View(obSlider);
-            this.Model = new Model(this.View.obSlider);
+            this.View = new View($('#' + sliderID));
+            this.Model = new Model();
             this.Controller = new Controller(this.View, this.Model);
+            this.Controller.init();
         }
         return SliderMVC;
     }());
@@ -151,7 +136,7 @@
             idCodeLen: 1000
         }, options || {});
         var slider = new SliderMVC($(this).attr('id'));
-        return $(this);
-        //console.log(slider);
+        console.log(slider);
+        return slider;
     };
 })(jQuery);

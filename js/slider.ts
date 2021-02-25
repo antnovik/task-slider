@@ -1,81 +1,166 @@
-//var jQueryPlagin;
-//jQueryPlagin = jQuery;
-
 (function($) {
-    interface ViewInterface
+   interface MainViewInterface
+   {
+       el: any;
+       elements:any;
+       subLayers: any;
+       create(): void;
+   }
+
+    class View implements  MainViewInterface
     {
-        model: any;
-        update(): void;
-        setModel(model:any): void;
+        el: any;
+        elements: any;
+        subLayers: any;
+        bilder: any;
+
+        constructor (slider: any){
+            this.elements =  {};
+            this.subLayers = {};
+            this.el = this.elements.parent = slider;
+
+            this.bilder = new SliderBilder(this.elements);
+        }
+
+        create(){
+            let bilder = this.bilder;
+            this.elements.scale = bilder.createScale();
+            this.subLayers.scale = new SubView(this.elements.scale);
+
+            this.elements.thumb = bilder.createThumb();
+            this.subLayers.thumb = new SubView(this.elements.thumb);
+
+            this.elements.thumbOutput = bilder.createThumbOutput();
+            this.subLayers.thumbOutput = new SubView(this.elements.thumbOutput);
+        }
     }
 
-    class View implements ViewInterface
+
+    class SubView
     {
+        el: any;
+        constructor(el: any){
+            this.el = el;
+        }
+    }
+
+    interface SliderBilderInterface
+    {   
+        elements: any;
+        createThumb(): any;
+        createThumbOutput(): any;
+    }
+
+    class SliderBilder implements SliderBilderInterface{
+        elements: any;
+ 
+        constructor(elements: any)
+        {
+            this.elements = elements;
+        }
+
+        createScale(className:string = 'scale') : any{
+            let scale = $('<div>', {'class': className}),
+                slider = this.elements.parent;
+            slider.append(scale);
+            return scale;
+        }
+
+        createThumb(className:string = 'thumb') : any
+        {
+            let thumb = $('<div>', {'class': className}),
+                scale = this.elements.scale;
+            scale.append(thumb);
+            return thumb;
+        }
+
+        createThumbOutput(className:string = 'thumb-output'): any
+        {
+            let thumbOut = $('<div>', {'class': className}),
+                scale = this.elements.scale;
+            
+            scale.append(thumbOut);
+            return thumbOut;
+         }
+    }
+
+
+    interface ModelInterface
+    {   
+        curValue: string;
+        init(type: string):void;
+    }
+
+    class Model implements ModelInterface
+    {
+        thumbStep: number;
+        curValue: string;   
+
         
-        model: any;
-        obSlider: any;
-        constructor (obSlider: any){
-            this.obSlider = obSlider;
-        }
-        setModel(model:any): void
+        constructor()
         {
-            this.model = model;
+            this.curValue = '';
         }
 
-        update ():void
+        init(type: string = 'default')
         {
-
+            console.log(type);
         }
-    } 
-   
-   
+
+        calculateCurValue(thumbPosition : number):void
+        {
+            //this.view.update();
+        }
+    }
+
     interface ControllerInterface
     {
         view: any;
         model: any;
+        scaleWidth: number;
+        thumbPosition: number;
+      
+        calcScaleWidth(): void;
+
         bindEvents(): void;
-        subscribeVewToModel():void;
-        setModelToView():void;
     }
 
     class Controller implements ControllerInterface
     {
         view: any;
         model: any;
+        elements: any;
         handlers: any;
 
-        obSlider: any;
         thumbMovingHandler: any;
+
+        scaleWidth: number;
+        thumbPosition: number;
+
         
         constructor (view: any, model: any){
-            //super();
-            //let obSlider
             this.view = view;
             this.model = model;
-            this.subscribeVewToModel();
-            this.setModelToView();
+        }
 
-            this.obSlider = view.obSlider;
-            this.handlers = new Handlers(this.obSlider);
-            //console.log(this.handlers);
-            //this.thumbMovingHandler = Handlers.moveHorizontal;
+        init(): void
+        {
+            this.view.create();
+            this.elements = this.view.elements;
+            this.handlers = new Handlers(this.elements);
             this.thumbMovingHandler = this.handlers.moveHorizontal;
+            this.calcScaleWidth;
             this.bindEvents();
         }
 
-        subscribeVewToModel():void
+        calcScaleWidth(): void
         {
-            this.model.subscribeView(this.view);
-        }
-
-        setModelToView():void
-        {
-            this.view.setModel(this.model);
+            //return true;
         }
        
         bindEvents(): void
         {
-            this.obSlider.thumb.on(
+            this.elements.thumb.on(
                 'mousedown',
                 this.thumbMovingHandler
             );
@@ -85,153 +170,57 @@
 
     class Handlers
     {
-        obSlider: any;
-        sliderDOM: any;
+        elements: any;
+        edges: any;
+        shiftX: number;
 
-        constructor (obSlider: any)
+        constructor (elements: any)
         {
-            this.obSlider = obSlider;
-            this.sliderDOM = {
-                slider : obSlider.DOM.slider,
-                thumb : obSlider.DOM.thumb
-                //slider : Helper.makeClearJSElement(obSlider.slider),
-                //thumb : Helper.makeClearJSElement(obSlider.thumb)
-            }
+
+            this.elements = elements;
+            this.edges = {
+                right: elements.scale.outerWidth() - elements.thumb.outerWidth(),
+                left: 0
+            };
         }
 
         moveHorizontal = (event: any) =>{
             event.preventDefault();
-          
-            let slider =  this.sliderDOM.slider;
-            let thumb = this.sliderDOM.thumb;
-            this.sliderDOM.shiftX = event.clientX - this.sliderDOM.thumb.getBoundingClientRect().left;
+            let elements = this.elements;
+            let thumbLeft = elements.thumb.offset().left;
+            this.shiftX = event.clientX - thumbLeft;
+
 
             document.addEventListener('mousemove', this.onMouseMoveHorisontal);
             document.addEventListener('mouseup', this.onMouseUpHorisontal);
         }
 
         onMouseMoveHorisontal = (event: any) => {
-            let slider =  this.sliderDOM.slider,
-                thumb = this.sliderDOM.thumb,
-                shiftX = this.sliderDOM.shiftX;
+            let elements = this.elements;
+            let sliderLeft = elements.scale.offset().left,
+                shiftX = this.shiftX;
 
-            let newLeft = event.clientX - shiftX - slider.getBoundingClientRect().left;
-        
-            // курсор вышел из слайдера => оставить бегунок в его границах.
-            if (newLeft < 0) {
-              newLeft = 0;
+            let newLeft = event.clientX - shiftX - sliderLeft;
+
+
+            if (newLeft < this.edges.left) {
+              newLeft = this.edges.left;
             }
-            let rightEdge = slider.offsetWidth - thumb.offsetWidth;
-            if (newLeft > rightEdge) {
-              newLeft = rightEdge;
+  
+            if (newLeft > this.edges.right) {
+              newLeft = this.edges.right;
             }
-    
-            thumb.style.left = newLeft + 'px';
+
+            elements.thumb.css('left', newLeft + 'px')
+            elements.thumbOutput.css('left', newLeft + 'px')
         }
 
         onMouseUpHorisontal = () => {
             document.removeEventListener('mouseup', this.onMouseUpHorisontal);
             document.removeEventListener('mousemove', this.onMouseMoveHorisontal);
         }
-
-        static testHandler = function(event)
-        {
-            console.log(event);
-            console.log('testHandler');
-        }
     }
 
-
-    class Helper
-    {
-        static makeClearJSElement(el: any){
-            if(el instanceof jQuery)
-                return el.get(0);
-        }
-    }
-
-    interface ModelInterface
-    {   
-        view: any;
-        curValue: string;
-        subscribeView(view: any):void;
-        init(type: string):void;
-    }
-
-    class Model implements ModelInterface
-    {
-        view: any;
-        obSlider: any;
-        thumbStep: number;
-        curValue: string;
-
-        
-        constructor(obSlider: any)
-        {
-            this.obSlider = obSlider;
-        }
-
-        init(type: string = 'default')
-        {
-            console.log(type);
-        }
-
-        subscribeView(view: any)
-        {
-            this.view = view;
-        }
-
-        calculateCurValue():void
-        {
-
-            this.view.update();
-        }
-    }
-
-    interface SliderInterface
-    {   
-        slider: any;
-        thumb: any;
-        DOM: any;
-    }
-
-
-    class Slider implements SliderInterface{
-        slider: any;
-        thumb: any;
-        DOM:any;
-        constructor (sliderID: string){
-            this.DOM = {};
-            let jquerySlider = $('#' + sliderID);
-            this.slider = jquerySlider;
-            this.DOM.slider = Helper.makeClearJSElement(this.slider);
-        }
-    }
-
-
-    interface SliderBilderInterface
-    {   
-        obSlider: any;
-        createThumb(): void;
-    }
-
-    class SliderBilder implements SliderBilderInterface{
-        obSlider: any;
-        constructor(obSlider: any)
-        {
-            this.obSlider = obSlider;
-        }
-
-        createThumb(className:string = 'thumb')
-        {
-            let slider = this.obSlider.slider;
-            let thumb = $('<div>', {'class': className});
-            slider.append(thumb);
-            this.obSlider.thumb = thumb;
-            this.obSlider.DOM.thumb = Helper.makeClearJSElement(thumb);
-            return this;
-        }
-    }
 
     class SliderMVC
     {
@@ -241,14 +230,11 @@
 
         constructor(sliderID: string)
         {
-            let obSlider = new Slider(sliderID);
-            let bilder =  new SliderBilder(obSlider);
-            bilder.createThumb();
-            console.log(bilder);
-            this.View = new View(obSlider);
-            this.Model = new Model (this.View.obSlider);
-            this.Controller = new Controller (this.View, this.Model);
-            
+           
+            this.View = new View($('#'+ sliderID));
+            this.Model = new Model();
+            this.Controller = new Controller(this.View, this.Model);
+            this.Controller.init();
         }
 
     }
@@ -264,10 +250,8 @@
         }, options||{});
 
         let slider = new SliderMVC($(this).attr('id'));
-        return $(this);
-        //console.log(slider);
+        console.log(slider);
+        return slider;
+
     }
-
-
-
 })(jQuery);
