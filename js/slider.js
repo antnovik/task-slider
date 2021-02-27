@@ -1,7 +1,12 @@
 (function ($) {
+    var SliderElements = /** @class */ (function () {
+        function SliderElements() {
+        }
+        return SliderElements;
+    }());
     var View = /** @class */ (function () {
         function View(slider) {
-            this.elements = {};
+            this.elements = new SliderElements();
             this.subLayers = {};
             this.el = this.elements.parent = slider;
             this.bilder = new SliderBilder(this.elements);
@@ -55,8 +60,9 @@
             if (type === void 0) { type = 'default'; }
             console.log(type);
         };
-        Model.prototype.calculateCurValue = function (thumbPosition) {
-            //this.view.update();
+        Model.prototype.calculateCurValue = function (thumbRatioValue) {
+            this.curValue = String(thumbRatioValue * 7);
+            return this.curValue;
         };
         return Model;
     }());
@@ -65,16 +71,49 @@
             this.view = view;
             this.model = model;
         }
+        Controller.prototype.setMargins = function (margins) {
+            this.margins = margins;
+        };
         Controller.prototype.init = function () {
             this.view.create();
             this.elements = this.view.elements;
-            this.handlers = new Handlers(this.elements);
+            this.handlers = new Handlers(this.elements, this.margins);
+            this.subcsribeHandler();
             this.thumbMovingHandler = this.handlers.moveHorizontal;
-            this.calcScaleWidth;
+            this.calcScaleWidth();
+            this.showValue(0);
             this.bindEvents();
         };
-        Controller.prototype.calcScaleWidth = function () {
-            //return true;
+        Controller.prototype.subcsribeHandler = function () {
+            var _this = this;
+            this.handlers.controllerUpdate = function (thumbPosition) {
+                _this.showValue(thumbPosition);
+            };
+        };
+        Controller.prototype.showValue = function (thumbPosition) {
+            var thumbRatioValue = Math.round(thumbPosition / this.scaleWidth * 100);
+            this.setOutputsValue(this.model.calculateCurValue(thumbRatioValue));
+        };
+        Controller.prototype.setOutputsValue = function (value) {
+            if (this.elements.thumbOutput)
+                this.elements.thumbOutput.html(value);
+        };
+        /*
+        getCurThumbValue(thumbPosition:number): string
+        {
+            let thumbRatioValue = Math.round(thumbPosition/this.scaleWidth*100);
+            return this.model.calculateCurValue(thumbRatioValue);
+        }
+        */
+        Controller.prototype.calcScaleWidth = function (slideType) {
+            if (slideType === void 0) { slideType = 'x-axis'; }
+            if (this.elements.scale && this.elements.thumb) {
+                switch (slideType) {
+                    case 'x-axis':
+                        this.scaleWidth = this.elements.scale.width() - this.elements.thumb.width();
+                        break;
+                }
+            }
         };
         Controller.prototype.bindEvents = function () {
             this.elements.thumb.on('mousedown', this.thumbMovingHandler);
@@ -82,7 +121,7 @@
         return Controller;
     }());
     var Handlers = /** @class */ (function () {
-        function Handlers(elements) {
+        function Handlers(elements, margins) {
             var _this = this;
             this.moveHorizontal = function (event) {
                 event.preventDefault();
@@ -103,17 +142,29 @@
                     newLeft = _this.edges.right;
                 }
                 elements.thumb.css('left', newLeft + 'px');
-                elements.thumbOutput.css('left', newLeft + 'px');
+                elements.thumbOutput.css('left', (newLeft - _this.options.thumbOutputOffset) + 'px');
+                _this.controllerUpdate(newLeft);
             };
             this.onMouseUpHorisontal = function () {
                 document.removeEventListener('mouseup', _this.onMouseUpHorisontal);
                 document.removeEventListener('mousemove', _this.onMouseMoveHorisontal);
             };
             this.elements = elements;
+            this.options = {};
             this.edges = {
-                right: elements.scale.outerWidth() - elements.thumb.outerWidth(),
-                left: 0
+                right: elements.scale.outerWidth() - elements.thumb.outerWidth() - margins.right,
+                left: margins.left
             };
+            if (this.elements.thumbOutput) {
+                var thumbWidth = elements.thumb.width(), thumbOutputWidth = elements.thumbOutput.width();
+                var difWidth = thumbOutputWidth - thumbWidth;
+                if (difWidth > 0) {
+                    this.options.thumbOutputOffset = Math.floor(difWidth / 2);
+                }
+                else {
+                    this.options.thumbOutputOffset = 0;
+                }
+            }
         }
         return Handlers;
     }());
@@ -122,21 +173,34 @@
             this.View = new View($('#' + sliderID));
             this.Model = new Model();
             this.Controller = new Controller(this.View, this.Model);
-            this.Controller.init();
         }
+        SliderMVC.prototype.setOptions = function (options) {
+            this.options = options;
+            //Настройка контроллера
+            var scaleMargins = {
+                left: options.scaleMarginLeft,
+                right: options.scaleMarginRight,
+                top: options.scaleMarginTop,
+                bottom: options.scaleMarginBottom
+            };
+            this.Controller.setMargins(scaleMargins);
+            return this;
+        };
+        SliderMVC.prototype.make = function () {
+            this.Controller.init();
+            return this;
+        };
         return SliderMVC;
     }());
     $.fn.makeSlider = function (options) {
         var settings = $.extend({
             view: 'horizontal',
-            interval: '1',
-            runBox: true,
-            scaleStep: '0',
-            useParentId: false,
-            idCodeLen: 1000
+            scaleMarginLeft: 0,
+            scaleMarginRight: 0,
+            scaleMarginTop: 0,
+            scaleMarginBottom: 0
         }, options || {});
         var slider = new SliderMVC($(this).attr('id'));
-        console.log(slider);
-        return slider;
+        return slider.setOptions(settings).make();
     };
 })(jQuery);
