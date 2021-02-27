@@ -1,21 +1,31 @@
+declare var jQuery: any;
 (function($) {
-   interface MainViewInterface
-   {
+    class SliderElements 
+    {
+        parent: any;
+        thumb: any;
+        scale: any;
+        thumbOutput:any;
+    }
+
+
+    interface MainViewInterface
+    {
        el: any;
-       elements:any;
+       elements:SliderElements;
        subLayers: any;
        create(): void;
-   }
+    }
 
     class View implements  MainViewInterface
     {
         el: any;
-        elements: any;
+        elements: SliderElements;
         subLayers: any;
         bilder: any;
 
         constructor (slider: any){
-            this.elements =  {};
+            this.elements =  new SliderElements();
             this.subLayers = {};
             this.el = this.elements.parent = slider;
 
@@ -46,15 +56,15 @@
 
     interface SliderBilderInterface
     {   
-        elements: any;
+        elements: SliderElements;
         createThumb(): any;
         createThumbOutput(): any;
     }
 
     class SliderBilder implements SliderBilderInterface{
-        elements: any;
+        elements: SliderElements;
  
-        constructor(elements: any)
+        constructor(elements: SliderElements)
         {
             this.elements = elements;
         }
@@ -107,9 +117,10 @@
             console.log(type);
         }
 
-        calculateCurValue(thumbPosition : number):void
+        calculateCurValue(thumbRatioValue : number):string
         {
-            //this.view.update();
+            this.curValue = String(thumbRatioValue*7);
+            return this.curValue;
         }
     }
 
@@ -120,7 +131,7 @@
         scaleWidth: number;
         thumbPosition: number;
       
-        calcScaleWidth(): void;
+        calcScaleWidth(sliderType: string): void;
 
         bindEvents(): void;
     }
@@ -129,8 +140,9 @@
     {
         view: any;
         model: any;
-        elements: any;
+        elements: SliderElements;
         handlers: any;
+        margins: any;
 
         thumbMovingHandler: any;
 
@@ -143,21 +155,69 @@
             this.model = model;
         }
 
+        setMargins(margins:any) : void
+        {
+            this.margins = margins;
+        }
+
         init(): void
         {
             this.view.create();
             this.elements = this.view.elements;
-            this.handlers = new Handlers(this.elements);
+
+            this.handlers = new Handlers(this.elements, this.margins);
+            this.subcsribeHandler();
+
             this.thumbMovingHandler = this.handlers.moveHorizontal;
-            this.calcScaleWidth;
+
+            this.calcScaleWidth();
+
+            this.showValue(0);
+
             this.bindEvents();
         }
 
-        calcScaleWidth(): void
+        subcsribeHandler(): void
         {
-            //return true;
+            this.handlers.controllerUpdate = (thumbPosition:number) => {
+                this.showValue(thumbPosition);
+            }
         }
-       
+
+        showValue(thumbPosition:number): void
+        {
+            let thumbRatioValue = Math.round(thumbPosition/this.scaleWidth*100);
+            this.setOutputsValue(this.model.calculateCurValue(thumbRatioValue));
+        }
+
+        setOutputsValue(value: string): void
+        {
+            if(this.elements.thumbOutput)
+                this.elements.thumbOutput.html(value);
+        }
+
+        /*
+        getCurThumbValue(thumbPosition:number): string
+        {
+            let thumbRatioValue = Math.round(thumbPosition/this.scaleWidth*100);
+            return this.model.calculateCurValue(thumbRatioValue);
+        }
+        */
+
+        calcScaleWidth(slideType: string = 'x-axis'): void
+        {
+            if(this.elements.scale && this.elements.thumb){
+                switch (slideType){
+                    case 'x-axis':
+                        this.scaleWidth = this.elements.scale.width() - this.elements.thumb.width();
+                        break;
+                }
+            }
+        }
+
+   
+
+      
         bindEvents(): void
         {
             this.elements.thumb.on(
@@ -170,18 +230,35 @@
 
     class Handlers
     {
-        elements: any;
+        elements: SliderElements;
         edges: any;
         shiftX: number;
+        options: any;
+        controllerUpdate: any;
 
-        constructor (elements: any)
+        constructor (elements: any, margins: any)
         {
 
             this.elements = elements;
+            this.options = {};
             this.edges = {
-                right: elements.scale.outerWidth() - elements.thumb.outerWidth(),
-                left: 0
+                right: elements.scale.outerWidth() - elements.thumb.outerWidth() - margins.right,
+                left: margins.left
             };
+
+
+            if(this.elements.thumbOutput){
+                let thumbWidth =  elements.thumb.width(),
+                    thumbOutputWidth =  elements.thumbOutput.width();
+
+                let difWidth = thumbOutputWidth - thumbWidth;
+                if(difWidth > 0){
+                    this.options.thumbOutputOffset = Math.floor(difWidth/2);
+                } else{
+                    this.options.thumbOutputOffset = 0;
+                }
+            
+            }
         }
 
         moveHorizontal = (event: any) =>{
@@ -211,8 +288,9 @@
               newLeft = this.edges.right;
             }
 
-            elements.thumb.css('left', newLeft + 'px')
-            elements.thumbOutput.css('left', newLeft + 'px')
+            elements.thumb.css('left', newLeft + 'px');
+            elements.thumbOutput.css('left', (newLeft -  this.options.thumbOutputOffset) + 'px');
+            this.controllerUpdate(newLeft);
         }
 
         onMouseUpHorisontal = () => {
@@ -227,31 +305,48 @@
         View: any;
         Model: any;
         Controller: any;
+        options: any;
 
         constructor(sliderID: string)
         {
-           
             this.View = new View($('#'+ sliderID));
             this.Model = new Model();
             this.Controller = new Controller(this.View, this.Model);
-            this.Controller.init();
         }
 
+        setOptions(options : any): SliderMVC
+        {
+            this.options = options;
+
+            //Настройка контроллера
+            let scaleMargins = {
+                left: options.scaleMarginLeft,
+                right: options.scaleMarginRight,
+                top: options.scaleMarginTop,
+                bottom: options.scaleMarginBottom,
+            }
+            this.Controller.setMargins(scaleMargins);
+
+            return this;
+        }
+
+        make(): SliderMVC
+        {
+            this.Controller.init();
+            return this;
+        }
     }
 
     $.fn.makeSlider = function(options) {
-		var settings = $.extend({
-			view: 'horizontal',
-			interval: '1',
-			runBox: true,
-			scaleStep: '0',
-			useParentId: false,
-			idCodeLen: 1000,
+		let settings = $.extend({
+            view: 'horizontal',
+            scaleMarginLeft: 0,
+            scaleMarginRight: 0,
+            scaleMarginTop: 0,
+            scaleMarginBottom: 0,
         }, options||{});
 
         let slider = new SliderMVC($(this).attr('id'));
-        console.log(slider);
-        return slider;
-
+        return slider.setOptions(settings).make();
     }
 })(jQuery);
