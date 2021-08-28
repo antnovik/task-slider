@@ -252,3 +252,5 @@ var __extends = (this && this.__extends) || (function () {
         return slider.setOptions(settings).make();
     };
 })(jQuery);
+
+

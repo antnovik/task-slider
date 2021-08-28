@@ -17,7 +17,6 @@ declare var jQuery: any;
     }
 
 
-
     interface MainViewInterface
     {
        el: any;
