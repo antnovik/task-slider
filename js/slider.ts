@@ -8,10 +8,20 @@ declare var jQuery: any;
         thumbOutput:any;
     }
 
+    class SliderIntervalElements extends SliderElements
+    {
+        leftThumb:any;
+        leftThumbOutput:any;
+        rightThumb:any;
+        rightThumbOutput:any;
+    }
+
+
 
     interface MainViewInterface
     {
        el: any;
+       type: string;
        elements:SliderElements;
        subLayers: any;
        create(): void;
@@ -20,29 +30,94 @@ declare var jQuery: any;
     class View implements  MainViewInterface
     {
         el: any;
+        type: string;
         elements: SliderElements;
         subLayers: any;
         bilder: any;
 
-        constructor (slider: any){
-            this.elements =  new SliderElements();
+        constructor (sliderWrap: any, sliderType: string = 'default')
+        {
+            this.type = sliderType;
+            switch (sliderType){
+                case 'interval':
+                    this.elements =  new SliderIntervalElements();
+                    break;
+                case 'default':
+                    this.elements =  new SliderElements();
+                    break;
+                default:
+                    this.elements =  new SliderElements();
+                    break;
+            }
+
             this.subLayers = {};
-            this.el = this.elements.parent = slider;
+            this.el = this.elements.parent = sliderWrap;
 
             this.bilder = new SliderBilder(this.elements);
         }
 
-        create(){
-            let bilder = this.bilder;
-            this.elements.scale = bilder.createScale();
+        create():void
+        {
+            this.elements.scale =  this.bilder.createScale();
             this.subLayers.scale = new SubView(this.elements.scale);
 
-            this.elements.thumb = bilder.createThumb();
+            switch (this.type){
+                case 'interval':
+                    this.createInterval();
+                    break;
+                default:
+                    this.createSimpleSlider();
+                    break;
+            }
+        }
+
+        createSimpleSlider():void
+        {
+            this.elements.thumb =  this.bilder.createThumb();
             this.subLayers.thumb = new SubView(this.elements.thumb);
 
-            this.elements.thumbOutput = bilder.createThumbOutput();
+            this.elements.thumbOutput =  this.bilder.createThumbOutput();
             this.subLayers.thumbOutput = new SubView(this.elements.thumbOutput);
         }
+
+        createInterval():void
+        {
+            if( this.elements instanceof SliderIntervalElements){
+                this.elements.leftThumb =  this.bilder.createThumb('thumb thumb_left');
+                this.subLayers.leftThumb = new SubView( this.elements.leftThumb);
+    
+                this.elements.rightThumb =  this.bilder.createThumb('thumb thumb_right');
+                this.subLayers.rightThumb = new SubView( this.elements.rightThumb);
+    
+                this.elements.rightThumb.css('left', '100px');
+            }
+        }
+        
+
+        setOutputsPositionX = function (thumbPosition: number): void
+        {
+            this.elements.thumb.css('left', thumbPosition + 'px');
+            if(this.elements.thumbOutput){
+                let thumbWidth =  this.elements.thumb.outerWidth(),
+                    thumbOutputWidth =  this.elements.thumbOutput.outerWidth();
+
+                let difWidth = thumbOutputWidth - thumbWidth,
+                    thumbOutputOffset = 0;
+
+                if(difWidth > 0){
+                    thumbOutputOffset = Math.floor(difWidth/2);
+                }
+                this.elements.thumbOutput.css('left', (thumbPosition -  thumbOutputOffset) + 'px');
+            }
+        }
+        
+
+        setOutputsValue(value: string): void
+        {
+            if(this.elements.thumbOutput)
+                this.elements.thumbOutput.html(value);
+        }
+
     }
 
 
@@ -88,8 +163,9 @@ declare var jQuery: any;
         {
             let thumbOut = $('<div>', {'class': className}),
                 scale = this.elements.scale;
-            
+
             scale.append(thumbOut);
+
             return thumbOut;
          }
     }
@@ -145,6 +221,7 @@ declare var jQuery: any;
         margins: any;
 
         thumbMovingHandler: any;
+        moveOutputs: any;
 
         scaleWidth: number;
         thumbPosition: number;
@@ -162,6 +239,8 @@ declare var jQuery: any;
 
         init(): void
         {
+            let startPosition;
+            
             this.view.create();
             this.elements = this.view.elements;
 
@@ -169,10 +248,14 @@ declare var jQuery: any;
             this.subcsribeHandler();
 
             this.thumbMovingHandler = this.handlers.moveHorizontal;
+            this.moveOutputs = this.view.setOutputsPositionX;
+            startPosition = this.margins.left;
 
             this.calcScaleWidth();
 
             this.showValue(0);
+
+            this.moveOutputs(startPosition);
 
             this.bindEvents();
         }
@@ -180,6 +263,7 @@ declare var jQuery: any;
         subcsribeHandler(): void
         {
             this.handlers.controllerUpdate = (thumbPosition:number) => {
+                this.moveOutputs(thumbPosition);               
                 this.showValue(thumbPosition);
             }
         }
@@ -187,22 +271,9 @@ declare var jQuery: any;
         showValue(thumbPosition:number): void
         {
             let thumbRatioValue = Math.round(thumbPosition/this.scaleWidth*100);
-            this.setOutputsValue(this.model.calculateCurValue(thumbRatioValue));
+            this.view.setOutputsValue(this.model.calculateCurValue(thumbRatioValue));
         }
 
-        setOutputsValue(value: string): void
-        {
-            if(this.elements.thumbOutput)
-                this.elements.thumbOutput.html(value);
-        }
-
-        /*
-        getCurThumbValue(thumbPosition:number): string
-        {
-            let thumbRatioValue = Math.round(thumbPosition/this.scaleWidth*100);
-            return this.model.calculateCurValue(thumbRatioValue);
-        }
-        */
 
         calcScaleWidth(slideType: string = 'x-axis'): void
         {
@@ -233,32 +304,18 @@ declare var jQuery: any;
         elements: SliderElements;
         edges: any;
         shiftX: number;
-        options: any;
+        //options: any;
         controllerUpdate: any;
 
         constructor (elements: any, margins: any)
         {
 
             this.elements = elements;
-            this.options = {};
+           //this.options = {};
             this.edges = {
                 right: elements.scale.outerWidth() - elements.thumb.outerWidth() - margins.right,
                 left: margins.left
-            };
-
-
-            if(this.elements.thumbOutput){
-                let thumbWidth =  elements.thumb.width(),
-                    thumbOutputWidth =  elements.thumbOutput.width();
-
-                let difWidth = thumbOutputWidth - thumbWidth;
-                if(difWidth > 0){
-                    this.options.thumbOutputOffset = Math.floor(difWidth/2);
-                } else{
-                    this.options.thumbOutputOffset = 0;
-                }
-            
-            }
+            };  
         }
 
         moveHorizontal = (event: any) =>{
@@ -288,8 +345,6 @@ declare var jQuery: any;
               newLeft = this.edges.right;
             }
 
-            elements.thumb.css('left', newLeft + 'px');
-            elements.thumbOutput.css('left', (newLeft -  this.options.thumbOutputOffset) + 'px');
             this.controllerUpdate(newLeft);
         }
 
@@ -309,7 +364,7 @@ declare var jQuery: any;
 
         constructor(sliderID: string)
         {
-            this.View = new View($('#'+ sliderID));
+            this.View = new View($('#'+ sliderID), 'interval');
             this.Model = new Model();
             this.Controller = new Controller(this.View, this.Model);
         }
@@ -317,6 +372,8 @@ declare var jQuery: any;
         setOptions(options : any): SliderMVC
         {
             this.options = options;
+
+            console.log(options);
 
             //Настройка контроллера
             let scaleMargins = {

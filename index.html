@@ -18,6 +18,7 @@
 }
 
 .thumb {
+  display: inline-block;
   width: 10px;
   height: 25px;
   border-radius: 3px;
@@ -74,7 +75,9 @@
 
 <script>
 (function ($){
-  let slider = $('#slider').makeSlider();
+  let slider = $('#slider').makeSlider({
+    sliderType: 'interval'
+  });
   console.log(slider);
 })(jQuery);
 </script>
